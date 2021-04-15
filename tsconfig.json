@@ -1,10 +1,17 @@
 {
-  "extends": "./tsconfig.build.json",
-  "include": [
-    "packages"
+  "references": [
+    {
+      "path": "./packages/chakra-theme-vscode"
+    },
+    {
+      "path": "./packages/language-server"
+    },
   ],
-  "compilerOptions": {
-    "allowJs": false,
-    "baseUrl": ".",
-  }
+  "files": [],
+  "include": [],
+  "exclude": [
+    "**/node_modules",
+    "node_modules",
+    "dist"
+  ]
 }
