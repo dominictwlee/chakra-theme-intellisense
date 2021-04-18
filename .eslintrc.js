@@ -14,4 +14,9 @@ module.exports = {
     'plugin:import/typescript',
     'plugin:@typescript-eslint/recommended',
   ],
+  rules: {
+    '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_' }],
+    'import/no-unresolved': ['error', { ignore: ['vscode'] }],
+    '@typescript-eslint/explicit-module-boundary-types': 'off',
+  },
 };
