@@ -95,7 +95,9 @@ connection.onDidChangeConfiguration((change) => {
     // Reset all cached document settings
     documentSettings.clear();
   } else {
-    globalSettings = <ExampleSettings>(change.settings.languageServerExample || defaultSettings);
+    globalSettings = <ExampleSettings>(
+      (change.settings.chakraThemeLanguageServer || defaultSettings)
+    );
   }
 
   // Revalidate all open text documents
@@ -110,7 +112,7 @@ function getDocumentSettings(resource: string): Thenable<ExampleSettings> {
   if (!result) {
     result = connection.workspace.getConfiguration({
       scopeUri: resource,
-      section: 'languageServerExample',
+      section: 'chakraThemeLanguageServer',
     });
     documentSettings.set(resource, result);
   }
