@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from 'path';
-import { workspace, ExtensionContext } from 'vscode';
+import { ExtensionContext } from 'vscode';
 
 import {
   LanguageClient,
@@ -20,6 +20,8 @@ export function activate(context: ExtensionContext) {
   const serverModule = context.asAbsolutePath(
     path.join('packages', 'language-server', 'src', 'server.js')
   );
+
+  console.log(serverModule, '[SERVER_MODULE_PATH]');
 
   // The debug options for the server
   // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
@@ -39,11 +41,10 @@ export function activate(context: ExtensionContext) {
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
-    documentSelector: [{ scheme: 'file', language: 'plaintext' }],
-    synchronize: {
-      // Notify the server about file changes to '.clientrc files contained in the workspace
-      fileEvents: workspace.createFileSystemWatcher('**/.clientrc'),
-    },
+    documentSelector: [
+      { scheme: 'file', language: 'typescriptreact' },
+      { scheme: 'file', language: 'javascriptreact' },
+    ],
   };
 
   // Create the language client and start the client.
