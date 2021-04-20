@@ -1,6 +1,7 @@
 {
   "name": "chakra-theme-vscode",
   "description": "Chakra theme intellisense for VS Code",
+  "main": "dist/src/extension.js",
   "author": "Dominic Lee",
   "license": "MIT",
   "version": "0.0.1",
@@ -14,9 +15,10 @@
   },
   "activationEvents": [
     "onLanguage:javascriptreact",
-    "onLanguage:typescriptreact"
+    "onLanguage:typescriptreact",
+    "onLanguage:typescript",
+    "onLanguage:javascript"
   ],
-  "main": "dist/src/extension.js",
   "contributes": {
     "configuration": {
       "type": "object",

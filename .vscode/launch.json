@@ -8,15 +8,13 @@
       "name": "Launch Client",
       "runtimeExecutable": "${execPath}",
       "args": [
-        "--extensionDevelopmentPath=${workspaceRoot}"
+        "--extensionDevelopmentPath=${workspaceRoot}/packages/chakra-theme-vscode"
       ],
+      "stopOnEntry": false,
+      "sourceMaps": true,
       "outFiles": [
         "${workspaceRoot}/packages/chakra-theme-vscode/dist/**/*.js"
       ],
-      "preLaunchTask": {
-        "type": "npm",
-        "script": "watch"
-      }
     },
     {
       "type": "node",

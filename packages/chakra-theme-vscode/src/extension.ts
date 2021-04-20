@@ -17,9 +17,7 @@ let client: LanguageClient;
 
 export function activate(context: ExtensionContext) {
   // The server is implemented in node
-  const serverModule = context.asAbsolutePath(
-    path.join('packages', 'language-server', 'src', 'server.js')
-  );
+  const serverModule = require.resolve('chakra-theme-language-server/dist/src/server.js');
 
   console.log(serverModule, '[SERVER_MODULE_PATH]');
 
@@ -44,6 +42,8 @@ export function activate(context: ExtensionContext) {
     documentSelector: [
       { scheme: 'file', language: 'typescriptreact' },
       { scheme: 'file', language: 'javascriptreact' },
+      { scheme: 'file', language: 'typescript' },
+      { scheme: 'file', language: 'javascript' },
     ],
   };
 
