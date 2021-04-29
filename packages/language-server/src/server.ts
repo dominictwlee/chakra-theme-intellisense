@@ -2,6 +2,9 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
+import { promises as fsp } from 'fs';
+import { URI } from 'vscode-uri';
+import path from 'path';
 import {
   createConnection,
   TextDocuments,
@@ -15,9 +18,23 @@ import {
   TextDocumentPositionParams,
   TextDocumentSyncKind,
   InitializeResult,
+  MarkupContent,
+  InitializedParams,
+  WorkspaceFolder,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
+
+async function findChakraDependencyInWorkspace(folders: WorkspaceFolder[]) {
+  const folderPaths = folders.map((f) => {
+    const uri = URI.parse(f.uri);
+
+    return path.join(uri.fsPath, 'package.json');
+  });
+  const packageJsons = await Promise.all(folderPaths.map((p) => fsp.readFile(p, 'utf-8')));
+  const parsedPackageJsons = packageJsons.map((json) => JSON.parse(json));
+  return parsedPackageJsons;
+}
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -29,8 +46,9 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
+// let hasChakraDependency = false;
 
-connection.onInitialize((params: InitializeParams) => {
+connection.onInitialize(async (params: InitializeParams) => {
   const capabilities = params.capabilities;
 
   // Does the client support the `workspace/configuration` request?
@@ -47,6 +65,7 @@ connection.onInitialize((params: InitializeParams) => {
       completionProvider: {
         resolveProvider: true,
       },
+      hoverProvider: true,
     },
   };
   if (hasWorkspaceFolderCapability) {
@@ -56,13 +75,22 @@ connection.onInitialize((params: InitializeParams) => {
       },
     };
   }
+
+  if (params.workspaceFolders) {
+    try {
+      const jsons = await findChakraDependencyInWorkspace(params.workspaceFolders);
+      console.log(jsons, 'ALL JSONS');
+    } catch (error) {
+      console.log(error, 'JSON READ ERR');
+    }
+  }
   return result;
 });
 
 connection.onInitialized(() => {
   if (hasConfigurationCapability) {
     // Register for all configuration changes.
-    connection.client.register(DidChangeConfigurationNotification.type, undefined);
+    connection.client.register(DidChangeConfigurationNotification.type);
   }
   if (hasWorkspaceFolderCapability) {
     connection.workspace.onDidChangeWorkspaceFolders((_event) => {
@@ -177,6 +205,19 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 connection.onDidChangeWatchedFiles((_change) => {
   // Monitored files have change in VSCode
   connection.console.log('We received an file change event');
+});
+
+connection.onHover((params) => {
+  console.log(params.position, 'POSITION');
+  console.log(params.textDocument.uri, 'TEXT DOC URI');
+
+  console.log(params.workDoneToken);
+
+  const doc: MarkupContent = { kind: 'markdown', value: ['# Title', '### Description'].join('\n') };
+
+  return {
+    contents: doc,
+  };
 });
 
 // This handler provides the initial list of the completion items.

@@ -19,8 +19,6 @@ export function activate(context: ExtensionContext) {
   // The server is implemented in node
   const serverModule = require.resolve('chakra-theme-language-server/dist/src/server.js');
 
-  console.log(serverModule, '[SERVER_MODULE_PATH]');
-
   // The debug options for the server
   // --inspect=6009: runs the server in Node's Inspector mode so VS Code can attach to the server for debugging
   const debugOptions = { execArgv: ['--nolazy', '--inspect=6009'] };
@@ -61,7 +59,7 @@ export function activate(context: ExtensionContext) {
 
 export function deactivate(): Thenable<void> | undefined {
   if (!client) {
-    return undefined;
+    return;
   }
   return client.stop();
 }
