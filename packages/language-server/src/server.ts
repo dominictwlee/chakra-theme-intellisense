@@ -25,15 +25,29 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-async function findChakraDependencyInWorkspace(folders: WorkspaceFolder[]) {
+function isSubPathOf(parent: string, targetPath: string) {
+  const relativePath = path.relative(parent, targetPath);
+  console.log(relativePath);
+}
+
+async function findChakraDependencyInWorkspaces(folders: WorkspaceFolder[]) {
   const folderPaths = folders.map((f) => {
     const uri = URI.parse(f.uri);
-
     return path.join(uri.fsPath, 'package.json');
   });
   const packageJsons = await Promise.all(folderPaths.map((p) => fsp.readFile(p, 'utf-8')));
-  const parsedPackageJsons = packageJsons.map((json) => JSON.parse(json));
-  return parsedPackageJsons;
+
+  const hasChakraDependencyByUri = new Map<string, boolean>();
+
+  packageJsons.forEach((json, index) => {
+    const parsedPackageJson = JSON.parse(json);
+    hasChakraDependencyByUri.set(
+      folders[index].uri,
+      !!parsedPackageJson.dependencies?.['@chakra-ui/react']
+    );
+  });
+
+  return hasChakraDependencyByUri;
 }
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -46,7 +60,7 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
-// let hasChakraDependency = false;
+let hasChakraDependencyByUri: Map<string, boolean> | null = null;
 
 connection.onInitialize(async (params: InitializeParams) => {
   const capabilities = params.capabilities;
@@ -78,8 +92,8 @@ connection.onInitialize(async (params: InitializeParams) => {
 
   if (params.workspaceFolders) {
     try {
-      const jsons = await findChakraDependencyInWorkspace(params.workspaceFolders);
-      console.log(jsons, 'ALL JSONS');
+      hasChakraDependencyByUri = await findChakraDependencyInWorkspaces(params.workspaceFolders);
+      console.log(hasChakraDependencyByUri, 'ALL Flags');
     } catch (error) {
       console.log(error, 'JSON READ ERR');
     }
@@ -208,10 +222,25 @@ connection.onDidChangeWatchedFiles((_change) => {
 });
 
 connection.onHover((params) => {
-  console.log(params.position, 'POSITION');
-  console.log(params.textDocument.uri, 'TEXT DOC URI');
+  if (!hasChakraDependencyByUri) {
+    return;
+  }
 
-  console.log(params.workDoneToken);
+  const hasChakraDependencyByUriEntries = Array.from(hasChakraDependencyByUri.entries());
+
+  const hasChakraInProject = hasChakraDependencyByUriEntries.find(
+    ([workspaceFolderUri, hasChakra]) => {
+      console.log(workspaceFolderUri, 'WORKSPACE URI');
+      console.log(params.textDocument.uri, 'TEXT DOC URI');
+
+      return params.textDocument.uri.startsWith(workspaceFolderUri) && hasChakra;
+    }
+  );
+
+  if (!hasChakraInProject) {
+    return;
+    console.log('NO CHAKRA IN PROJECT OF DOC');
+  }
 
   const doc: MarkupContent = { kind: 'markdown', value: ['# Title', '### Description'].join('\n') };
 
