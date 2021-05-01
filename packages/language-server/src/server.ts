@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 import { URI, Utils } from 'vscode-uri';
+import { promises as fsp } from 'fs';
 import {
   createConnection,
   TextDocuments,
@@ -188,13 +189,20 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-connection.onDidChangeWatchedFiles(({ changes }) => {
+connection.onDidChangeWatchedFiles(async ({ changes }) => {
   // Monitored files have change in VSCode
+  const packageJsons = await Promise.all(
+    changes.map((change) => fsp.readFile(URI.parse(change.uri).fsPath, 'utf-8'))
+  );
 
-  for (const c of changes) {
-    c.type;
-    console.log(c, 'CHANGED WATCHED FILE');
-  }
+  changes.forEach((c, index) => {
+    const parsedUri = URI.parse(c.uri);
+    const projectRootUri = Utils.dirname(parsedUri).toString();
+    const hasChakra = !!JSON.parse(packageJsons[index]).dependencies?.['@chakra-ui/react'];
+
+    hasChakraDependencyByUri?.set(projectRootUri, hasChakra);
+    console.log(hasChakraDependencyByUri, 'HAS CHAKRA DEPENDENCY URI MAP');
+  });
 });
 
 connection.onHover((params) => {
