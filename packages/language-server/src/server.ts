@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 import { promises as fsp } from 'fs';
-import { URI } from 'vscode-uri';
+import { URI, Utils } from 'vscode-uri';
 import path from 'path';
 import {
   createConnection,
@@ -19,15 +19,14 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   MarkupContent,
-  InitializedParams,
   WorkspaceFolder,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 
-function isSubPathOf(parent: string, targetPath: string) {
-  const relativePath = path.relative(parent, targetPath);
-  console.log(relativePath);
+function isSubPathOf(parent: string, subPath: string) {
+  const relativePath = path.relative(parent, subPath);
+  return relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
 }
 
 async function findChakraDependencyInWorkspaces(folders: WorkspaceFolder[]) {
@@ -216,9 +215,13 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
   connection.sendDiagnostics({ uri: textDocument.uri, diagnostics });
 }
 
-connection.onDidChangeWatchedFiles((_change) => {
+connection.onDidChangeWatchedFiles(({ changes }) => {
   // Monitored files have change in VSCode
-  connection.console.log('We received an file change event');
+
+  for (const c of changes) {
+    c.type;
+    console.log(c, 'CHANGED WATCHED FILE');
+  }
 });
 
 connection.onHover((params) => {
@@ -228,21 +231,30 @@ connection.onHover((params) => {
 
   const hasChakraDependencyByUriEntries = Array.from(hasChakraDependencyByUri.entries());
 
-  const hasChakraInProject = hasChakraDependencyByUriEntries.find(
-    ([workspaceFolderUri, hasChakra]) => {
-      console.log(workspaceFolderUri, 'WORKSPACE URI');
-      console.log(params.textDocument.uri, 'TEXT DOC URI');
+  hasChakraDependencyByUriEntries.forEach(([workspaceFolderUri]) => {
+    isSubPathOf(workspaceFolderUri, params.textDocument.uri);
+  });
 
-      return params.textDocument.uri.startsWith(workspaceFolderUri) && hasChakra;
-    }
+  const hasChakraInProject = hasChakraDependencyByUriEntries.find(
+    ([workspaceFolderUri, hasChakra]) =>
+      isSubPathOf(workspaceFolderUri, params.textDocument.uri) && hasChakra
   );
 
   if (!hasChakraInProject) {
     return;
-    console.log('NO CHAKRA IN PROJECT OF DOC');
   }
 
-  const doc: MarkupContent = { kind: 'markdown', value: ['# Title', '### Description'].join('\n') };
+  const parsedDocumentUri = URI.parse(params.textDocument.uri);
+  const extName = Utils.extname(parsedDocumentUri);
+
+  if (!['.ts', '.tsx', '.js', '.jsx'].includes(extName)) {
+    return;
+  }
+
+  const doc: MarkupContent = {
+    kind: 'markdown',
+    value: ['# HAS CHAKRA!', '### PARSE SOMETHING'].join('\n'),
+  };
 
   return {
     contents: doc,

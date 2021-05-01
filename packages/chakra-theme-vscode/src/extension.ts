@@ -4,7 +4,7 @@
  * ------------------------------------------------------------------------------------------ */
 
 import * as path from 'path';
-import { ExtensionContext } from 'vscode';
+import { ExtensionContext, RelativePattern, workspace } from 'vscode';
 
 import {
   LanguageClient,
@@ -34,6 +34,10 @@ export function activate(context: ExtensionContext) {
     },
   };
 
+  const packageJsonFileWatchers = workspace.workspaceFolders?.map((folder) => {
+    return workspace.createFileSystemWatcher(new RelativePattern(folder, 'package.json'));
+  });
+
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
     // Register the server for plain text documents
@@ -42,7 +46,11 @@ export function activate(context: ExtensionContext) {
       { scheme: 'file', language: 'javascriptreact' },
       { scheme: 'file', language: 'typescript' },
       { scheme: 'file', language: 'javascript' },
+      { scheme: 'file', language: 'json' },
     ],
+    synchronize: {
+      fileEvents: packageJsonFileWatchers,
+    },
   };
 
   // Create the language client and start the client.
