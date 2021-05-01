@@ -3,7 +3,6 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 import { URI, Utils } from 'vscode-uri';
-import { promises as fsp } from 'fs';
 import {
   createConnection,
   TextDocuments,
@@ -21,7 +20,7 @@ import {
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-import { findChakraDependencyInWorkspaces, isSubPathOf } from './utils';
+import ChakraDependencyTracker from './ChakraDependencyTracker';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -30,10 +29,12 @@ const connection = createConnection(ProposedFeatures.all);
 // Create a simple text document manager.
 const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
+// Keeps track of chakra dependency in workspace projects
+const chakraDependencyTracker = new ChakraDependencyTracker();
+
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
 let hasDiagnosticRelatedInformationCapability = false;
-let hasChakraDependencyByUri: Map<string, boolean> | null = null;
 
 connection.onInitialize(async (params: InitializeParams) => {
   const capabilities = params.capabilities;
@@ -64,13 +65,9 @@ connection.onInitialize(async (params: InitializeParams) => {
   }
 
   if (params.workspaceFolders) {
-    try {
-      hasChakraDependencyByUri = await findChakraDependencyInWorkspaces(params.workspaceFolders);
-      console.log(hasChakraDependencyByUri, 'ALL Flags');
-    } catch (error) {
-      console.log(error, 'JSON READ ERR');
-    }
+    await chakraDependencyTracker.setInitialHasChakraStates(params.workspaceFolders);
   }
+
   return result;
 });
 
@@ -190,53 +187,23 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 }
 
 connection.onDidChangeWatchedFiles(async ({ changes }) => {
-  // Monitored files have change in VSCode
-  const packageJsons = await Promise.all(
-    changes.map((change) => fsp.readFile(URI.parse(change.uri).fsPath, 'utf-8'))
-  );
-
-  changes.forEach((c, index) => {
-    const parsedUri = URI.parse(c.uri);
-    const projectRootUri = Utils.dirname(parsedUri).toString();
-    const hasChakra = !!JSON.parse(packageJsons[index]).dependencies?.['@chakra-ui/react'];
-
-    hasChakraDependencyByUri?.set(projectRootUri, hasChakra);
-    console.log(hasChakraDependencyByUri, 'HAS CHAKRA DEPENDENCY URI MAP');
-  });
+  chakraDependencyTracker.updateHasChakraStatesFromFileChanges(changes);
 });
 
 connection.onHover((params) => {
-  if (!hasChakraDependencyByUri) {
-    return;
-  }
-
-  const hasChakraDependencyByUriEntries = Array.from(hasChakraDependencyByUri.entries());
-
-  hasChakraDependencyByUriEntries.forEach(([workspaceFolderUri]) => {
-    isSubPathOf(workspaceFolderUri, params.textDocument.uri);
-  });
-
-  const hasChakraInProject = hasChakraDependencyByUriEntries.find(
-    ([workspaceFolderUri, hasChakra]) =>
-      isSubPathOf(workspaceFolderUri, params.textDocument.uri) && hasChakra
-  );
-
+  const hasChakraInProject = chakraDependencyTracker.findHasChakraByUri(params.textDocument.uri);
   if (!hasChakraInProject) {
     return;
   }
-
   const parsedDocumentUri = URI.parse(params.textDocument.uri);
   const extName = Utils.extname(parsedDocumentUri);
-
   if (!['.ts', '.tsx', '.js', '.jsx'].includes(extName)) {
     return;
   }
-
   const doc: MarkupContent = {
     kind: 'markdown',
     value: ['# HAS CHAKRA!', '### PARSE SOMETHING'].join('\n'),
   };
-
   return {
     contents: doc,
   };
