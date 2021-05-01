@@ -2,9 +2,7 @@
  * Copyright (c) Microsoft Corporation. All rights reserved.
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
-import { promises as fsp } from 'fs';
 import { URI, Utils } from 'vscode-uri';
-import path from 'path';
 import {
   createConnection,
   TextDocuments,
@@ -19,35 +17,10 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   MarkupContent,
-  WorkspaceFolder,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
-
-function isSubPathOf(parent: string, subPath: string) {
-  const relativePath = path.relative(parent, subPath);
-  return relativePath && !relativePath.startsWith('..') && !path.isAbsolute(relativePath);
-}
-
-async function findChakraDependencyInWorkspaces(folders: WorkspaceFolder[]) {
-  const folderPaths = folders.map((f) => {
-    const uri = URI.parse(f.uri);
-    return path.join(uri.fsPath, 'package.json');
-  });
-  const packageJsons = await Promise.all(folderPaths.map((p) => fsp.readFile(p, 'utf-8')));
-
-  const hasChakraDependencyByUri = new Map<string, boolean>();
-
-  packageJsons.forEach((json, index) => {
-    const parsedPackageJson = JSON.parse(json);
-    hasChakraDependencyByUri.set(
-      folders[index].uri,
-      !!parsedPackageJson.dependencies?.['@chakra-ui/react']
-    );
-  });
-
-  return hasChakraDependencyByUri;
-}
+import { findChakraDependencyInWorkspaces, isSubPathOf } from './utils';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
