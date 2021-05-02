@@ -3,6 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 import { URI, Utils } from 'vscode-uri';
+import { promises as fsp } from 'fs';
 import {
   createConnection,
   TextDocuments,
@@ -17,10 +18,13 @@ import {
   TextDocumentSyncKind,
   InitializeResult,
   MarkupContent,
+  FileEvent,
 } from 'vscode-languageserver/node';
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import ChakraDependencyTracker from './ChakraDependencyTracker';
+import { isJs, isTs } from './utils';
+import CodeAnalyzer from './CodeAnalyzer';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -31,6 +35,9 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 
 // Keeps track of chakra dependency in workspace projects
 const chakraDependencyTracker = new ChakraDependencyTracker();
+
+// Parses source code to AST, caching
+const codeAnalyzer = new CodeAnalyzer();
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
@@ -187,23 +194,54 @@ async function validateTextDocument(textDocument: TextDocument): Promise<void> {
 }
 
 connection.onDidChangeWatchedFiles(async ({ changes }) => {
-  chakraDependencyTracker.updateHasChakraStatesFromFileChanges(changes);
+  const jsonFileChanges: FileEvent[] = [];
+  const sourceCodeFileChanges: FileEvent[] = [];
+  for (const c of changes) {
+    const extName = Utils.extname(URI.parse(c.uri));
+    if (isJs(extName) || isTs(extName)) {
+      sourceCodeFileChanges.push(c);
+    } else if (extName === '.json') {
+      jsonFileChanges.push(c);
+    }
+  }
+
+  if (jsonFileChanges.length) {
+    chakraDependencyTracker.updateHasChakraStatesFromFileChanges(jsonFileChanges);
+  }
+  if (sourceCodeFileChanges.length) {
+    const readSourceFileResults = await Promise.allSettled(
+      sourceCodeFileChanges.map((change) => fsp.readFile(URI.parse(change.uri).fsPath, 'utf-8'))
+    );
+
+    readSourceFileResults.forEach((readResult, index) => {
+      if (readResult.status === 'fulfilled') {
+        codeAnalyzer.parse({
+          uri: sourceCodeFileChanges[index].uri,
+          code: readResult.value,
+          shouldInvalidate: true,
+        });
+      }
+    });
+  }
 });
 
 connection.onHover((params) => {
-  const hasChakraInProject = chakraDependencyTracker.findHasChakraByUri(params.textDocument.uri);
-  if (!hasChakraInProject) {
+  const hasChakra = chakraDependencyTracker.findHasChakraByUri(params.textDocument.uri);
+  if (!hasChakra) {
     return;
   }
+
   const parsedDocumentUri = URI.parse(params.textDocument.uri);
   const extName = Utils.extname(parsedDocumentUri);
   if (!['.ts', '.tsx', '.js', '.jsx'].includes(extName)) {
     return;
   }
+
   const doc: MarkupContent = {
     kind: 'markdown',
     value: ['# HAS CHAKRA!', '### PARSE SOMETHING'].join('\n'),
   };
+
   return {
     contents: doc,
   };

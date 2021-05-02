@@ -34,9 +34,10 @@ export function activate(context: ExtensionContext) {
     },
   };
 
-  const packageJsonFileWatchers = workspace.workspaceFolders?.map((folder) => {
-    return workspace.createFileSystemWatcher(new RelativePattern(folder, 'package.json'));
-  });
+  const packageJsonFileWatchers =
+    workspace.workspaceFolders?.map((folder) => {
+      return workspace.createFileSystemWatcher(new RelativePattern(folder, 'package.json'));
+    }) ?? [];
 
   // Options to control the language client
   const clientOptions: LanguageClientOptions = {
@@ -49,7 +50,10 @@ export function activate(context: ExtensionContext) {
       { scheme: 'file', language: 'json' },
     ],
     synchronize: {
-      fileEvents: packageJsonFileWatchers,
+      fileEvents: [
+        ...packageJsonFileWatchers,
+        workspace.createFileSystemWatcher('**/*.{ts,js,tsx,jsx}'),
+      ],
     },
   };
 
