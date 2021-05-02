@@ -24,7 +24,7 @@ import {
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import ChakraDependencyTracker from './ChakraDependencyTracker';
 import { isJs, isTs } from './utils';
-import CodeAnalyzer from './CodeAnalyzer';
+import ChakraCodeAnalyzer from './ChakraCodeAnalyzer';
 
 // Create a connection for the server, using Node's IPC as a transport.
 // Also include all preview / proposed LSP features.
@@ -37,7 +37,7 @@ const documents: TextDocuments<TextDocument> = new TextDocuments(TextDocument);
 const chakraDependencyTracker = new ChakraDependencyTracker();
 
 // Parses source code to AST, caching
-const codeAnalyzer = new CodeAnalyzer();
+const chakraCodeAnalyzer = new ChakraCodeAnalyzer();
 
 let hasConfigurationCapability = false;
 let hasWorkspaceFolderCapability = false;
@@ -215,7 +215,7 @@ connection.onDidChangeWatchedFiles(async ({ changes }) => {
 
     readSourceFileResults.forEach((readResult, index) => {
       if (readResult.status === 'fulfilled') {
-        codeAnalyzer.parse({
+        chakraCodeAnalyzer.parse({
           uri: sourceCodeFileChanges[index].uri,
           code: readResult.value,
           shouldInvalidate: true,

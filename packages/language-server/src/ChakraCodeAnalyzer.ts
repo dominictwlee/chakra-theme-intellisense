@@ -16,7 +16,7 @@ export interface CodeAnalyzerParseResult {
   hasChakraImport: boolean;
 }
 
-export default class CodeAnalyzer {
+export default class ChakraCodeAnalyzer {
   private cache: LRU<string, File>;
 
   constructor() {
