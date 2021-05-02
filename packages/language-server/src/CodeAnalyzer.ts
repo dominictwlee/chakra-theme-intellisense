@@ -1,8 +1,9 @@
 import LRU from 'lru-cache';
 import { URI, Utils } from 'vscode-uri';
-import { ESTree, parse } from 'meriyah';
 import { transformSync } from 'esbuild';
+import { parseSync } from '@babel/core';
 import { isTs } from './utils';
+import { File, ImportDeclaration, isFile, isImportDeclaration } from '@babel/types';
 
 export interface SourceFileParams {
   uri: string;
@@ -10,25 +11,43 @@ export interface SourceFileParams {
   shouldInvalidate?: boolean;
 }
 
+export interface CodeAnalyzerParseResult {
+  ast: File | null;
+  hasChakraImport: boolean;
+}
+
 export default class CodeAnalyzer {
-  private cache: LRU<string, ESTree.Program>;
+  private cache: LRU<string, File>;
 
   constructor() {
     this.cache = new LRU(100);
   }
 
-  parse({ uri, code, shouldInvalidate }: SourceFileParams) {
+  parse({ uri, code, shouldInvalidate }: SourceFileParams): CodeAnalyzerParseResult {
     if (this.cache.has(uri) && !shouldInvalidate) {
-      return this.cache.get(uri);
+      return { ast: this.cache.get(uri) as File, hasChakraImport: true };
     }
 
     const parsedUri = URI.parse(uri);
     const extName = Utils.extname(parsedUri);
     const jsCode = isTs(extName) ? transformSync(code).code : code;
-    const ast = parse(jsCode, { jsx: true, module: true });
+    const ast = parseSync(jsCode, {
+      sourceType: 'module',
+      presets: ['@babel/preset-typescript', '@babel/preset-react'],
+    });
 
-    this.cache.set(uri, ast);
+    if (!isFile(ast)) {
+      return { ast: null, hasChakraImport: false };
+    }
 
-    return ast;
+    const chakraImportDeclaration = ast.program.body.find(
+      (node) => isImportDeclaration(node) && node.source.value === '@chakra-ui/react'
+    ) as ImportDeclaration | undefined;
+
+    if (!chakraImportDeclaration) {
+      return { ast, hasChakraImport: false };
+    }
+
+    return { ast, hasChakraImport: true };
   }
 }
