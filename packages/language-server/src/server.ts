@@ -23,7 +23,7 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import ChakraDependencyTracker from './ChakraDependencyTracker';
-import { isJs, isTs } from './utils';
+import { isJs, isTs, readUriFiles } from './utils';
 import ChakraCodeAnalyzer from './ChakraCodeAnalyzer';
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -209,19 +209,16 @@ connection.onDidChangeWatchedFiles(async ({ changes }) => {
     chakraDependencyTracker.updateHasChakraStatesFromFileChanges(jsonFileChanges);
   }
   if (sourceCodeFileChanges.length) {
-    const readSourceFileResults = await Promise.allSettled(
-      sourceCodeFileChanges.map((change) => fsp.readFile(URI.parse(change.uri).fsPath, 'utf-8'))
+    const readSourceFileResults = await readUriFiles(
+      sourceCodeFileChanges.map((change) => change.uri),
+      'utf-8'
     );
-    readSourceFileResults.forEach((readResult, index) => {
-      if (readResult.status === 'fulfilled') {
-        const ast = chakraCodeAnalyzer.parse({
-          uri: sourceCodeFileChanges[index].uri,
-          code: readResult.value,
-          shouldInvalidate: true,
-        });
-
-        console.log(ast, 'AST');
-      }
+    readSourceFileResults.successes.forEach((readResult, index) => {
+      chakraCodeAnalyzer.parse({
+        uri: sourceCodeFileChanges[index].uri,
+        code: readResult.value,
+        shouldInvalidate: true,
+      });
     });
   }
 });

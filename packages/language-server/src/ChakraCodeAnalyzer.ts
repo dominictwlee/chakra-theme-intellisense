@@ -1,6 +1,8 @@
 import LRU from 'lru-cache';
+import { promises as fsp } from 'fs';
 import { URI, Utils } from 'vscode-uri';
 import { parseSync } from '@babel/core';
+import { FileEvent } from 'vscode-languageserver/node';
 import { File, ImportDeclaration, isFile, isImportDeclaration } from '@babel/types';
 
 export interface SourceFileParams {
@@ -21,7 +23,7 @@ export default class ChakraCodeAnalyzer {
     this.cache = new LRU(100);
   }
 
-  parse({ uri, code, shouldInvalidate }: SourceFileParams): File | null {
+  parse({ uri, code, shouldInvalidate = false }: SourceFileParams): File | null {
     if (this.cache.has(uri) && !shouldInvalidate) {
       return this.cache.get(uri) as File;
     }
