@@ -3,7 +3,7 @@
  * Licensed under the MIT License. See License.txt in the project root for license information.
  * ------------------------------------------------------------------------------------------ */
 import { URI, Utils } from 'vscode-uri';
-import { promises as fsp } from 'fs';
+import { readFileSync } from 'fs';
 import {
   createConnection,
   TextDocuments,
@@ -226,14 +226,25 @@ connection.onDidChangeWatchedFiles(async ({ changes }) => {
 connection.onHover((params) => {
   const hasChakra = chakraDependencyTracker.findHasChakraByUri(params.textDocument.uri);
   if (!hasChakra) {
-    return;
+    return null;
   }
 
   const parsedDocumentUri = URI.parse(params.textDocument.uri);
   const extName = Utils.extname(parsedDocumentUri);
-  if (!['.ts', '.tsx', '.js', '.jsx'].includes(extName)) {
+  if (!isTs(extName) || !isJs(extName)) {
     return;
   }
+
+  params.position.character;
+
+  let code: string | null = null;
+  try {
+    code = readFileSync(parsedDocumentUri.fsPath, 'utf-8');
+  } catch (error) {
+    console.error(error);
+    return null;
+  }
+  const ast = chakraCodeAnalyzer.parse({ uri: params.textDocument.uri, code });
 
   const doc: MarkupContent = {
     kind: 'markdown',
