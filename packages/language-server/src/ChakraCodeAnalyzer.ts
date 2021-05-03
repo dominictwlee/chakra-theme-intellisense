@@ -1,18 +1,12 @@
 import LRU from 'lru-cache';
 import { URI, Utils } from 'vscode-uri';
 import { parseSync } from '@babel/core';
-import { isTs } from './utils';
 import { File, ImportDeclaration, isFile, isImportDeclaration } from '@babel/types';
 
 export interface SourceFileParams {
   uri: string;
   code: string;
   shouldInvalidate?: boolean;
-}
-
-export interface CodeAnalyzerParseResult {
-  ast: File | null;
-  hasChakraImport: boolean;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -27,9 +21,9 @@ export default class ChakraCodeAnalyzer {
     this.cache = new LRU(100);
   }
 
-  parse({ uri, code, shouldInvalidate }: SourceFileParams): CodeAnalyzerParseResult {
+  parse({ uri, code, shouldInvalidate }: SourceFileParams): File | null {
     if (this.cache.has(uri) && !shouldInvalidate) {
-      return { ast: this.cache.get(uri) as File, hasChakraImport: true };
+      return this.cache.get(uri) as File;
     }
 
     const parsedUri = URI.parse(uri);
@@ -42,7 +36,7 @@ export default class ChakraCodeAnalyzer {
     });
 
     if (!isFile(ast)) {
-      return { ast: null, hasChakraImport: false };
+      return null;
     }
 
     const chakraImportDeclaration = ast.program.body.find(
@@ -50,9 +44,9 @@ export default class ChakraCodeAnalyzer {
     ) as ImportDeclaration | undefined;
 
     if (!chakraImportDeclaration) {
-      return { ast, hasChakraImport: false };
+      return null;
     }
 
-    return { ast, hasChakraImport: true };
+    return ast;
   }
 }
