@@ -1,6 +1,5 @@
 import LRU from 'lru-cache';
 import { URI, Utils } from 'vscode-uri';
-import { transformSync } from 'esbuild';
 import { parseSync } from '@babel/core';
 import { isTs } from './utils';
 import { File, ImportDeclaration, isFile, isImportDeclaration } from '@babel/types';
@@ -16,6 +15,11 @@ export interface CodeAnalyzerParseResult {
   hasChakraImport: boolean;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const babelPresetTypescript = require('@babel/preset-typescript');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const babelPresetReact = require('@babel/preset-react');
+
 export default class ChakraCodeAnalyzer {
   private cache: LRU<string, File>;
 
@@ -29,11 +33,12 @@ export default class ChakraCodeAnalyzer {
     }
 
     const parsedUri = URI.parse(uri);
-    const extName = Utils.extname(parsedUri);
-    const jsCode = isTs(extName) ? transformSync(code).code : code;
-    const ast = parseSync(jsCode, {
+    const filename = Utils.basename(parsedUri);
+
+    const ast = parseSync(code, {
       sourceType: 'module',
-      presets: ['@babel/preset-typescript', '@babel/preset-react'],
+      filename,
+      presets: [babelPresetTypescript, babelPresetReact],
     });
 
     if (!isFile(ast)) {
