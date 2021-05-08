@@ -2,7 +2,7 @@ import LRU from 'lru-cache';
 import { promises as fsp } from 'fs';
 import { URI, Utils } from 'vscode-uri';
 import { parseSync } from '@babel/core';
-import { FileEvent } from 'vscode-languageserver/node';
+import { FileEvent, Position } from 'vscode-languageserver/node';
 import { File, ImportDeclaration, isFile, isImportDeclaration } from '@babel/types';
 
 export interface SourceFileParams {

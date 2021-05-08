@@ -1,6 +1,8 @@
 import path from 'path';
 import { OpenMode, promises as fsp } from 'fs';
 import { URI, Utils } from 'vscode-uri';
+import { Position } from 'vscode-languageserver/node';
+import { Node } from '@babel/types';
 
 export function isSubPathOf(parent: string, subPath: string) {
   const relativePath = path.relative(parent, subPath);
@@ -44,4 +46,29 @@ export async function readUriFiles(
   }
 
   return mappedResults;
+}
+
+export function mapPositionToLoc({ line, character }: Position) {
+  return { line: line + 1, column: character };
+}
+
+interface Loc {
+  line: number;
+  column: number;
+}
+export function isWithinNodeLocRange({ line, column }: Loc, node: Node) {
+  if (!node.loc) {
+    return false;
+  }
+
+  const {
+    loc: { start, end },
+  } = node;
+  const isInLineRange = line >= start.line && line <= end.line;
+  const isInColumnRange = column >= start.column && column <= end.column;
+  if (isInLineRange && isInColumnRange) {
+    return true;
+  }
+
+  return false;
 }

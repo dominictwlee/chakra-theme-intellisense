@@ -235,7 +235,7 @@ connection.onHover((params) => {
     return;
   }
 
-  params.position.character;
+  console.log(params.position, 'HOVER POSITION');
 
   let code: string | null = null;
   try {
