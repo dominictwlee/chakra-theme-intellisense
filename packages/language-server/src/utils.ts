@@ -52,7 +52,7 @@ export function mapPositionToLoc({ line, character }: Position) {
   return { line: line + 1, column: character };
 }
 
-interface Loc {
+export interface Loc {
   line: number;
   column: number;
 }

@@ -11,6 +11,7 @@ import {
   isImportDeclaration,
   isImportSpecifier,
 } from '@babel/types';
+import { isWithinNodeLocRange, Loc } from './utils';
 
 export interface SourceFileParams {
   uri: string;
@@ -23,21 +24,26 @@ export interface ImportSpecifierNames {
   localName: string;
 }
 
+export interface ParsedResult {
+  ast: File;
+  importMap: Record<string, ImportSpecifierNames>;
+}
+
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const babelPresetTypescript = require('@babel/preset-typescript');
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const babelPresetReact = require('@babel/preset-react');
 
 export default class ChakraCodeAnalyzer {
-  private cache: LRU<string, File>;
+  private astCache: LRU<string, ParsedResult>;
 
   constructor() {
-    this.cache = new LRU(100);
+    this.astCache = new LRU(100);
   }
 
-  parse({ uri, code, shouldInvalidate = false }: SourceFileParams): File | null {
-    if (this.cache.has(uri) && !shouldInvalidate) {
-      return this.cache.get(uri) as File;
+  parse({ uri, code, shouldInvalidate = false }: SourceFileParams): ParsedResult | null {
+    if (this.astCache.has(uri) && !shouldInvalidate) {
+      return this.astCache.get(uri) as ParsedResult;
     }
 
     const parsedUri = URI.parse(uri);
@@ -61,25 +67,27 @@ export default class ChakraCodeAnalyzer {
       return null;
     }
 
-    return ast;
+    const chakraImportMap = this.createChakraImportMap(chakraImportDeclaration);
+    const parsedResult = { ast, importMap: chakraImportMap };
+    this.astCache.set(uri, parsedResult);
+
+    return parsedResult;
   }
 
-  traverse(ast: File) {
-    const chakraImportMap = this.createChakraImportMap(ast);
+  findChakraProps(parsedResult: ParsedResult, currentLoc: Loc) {
+    const { ast, importMap } = parsedResult;
     traverse(ast, {
       JSXOpeningElement(nodePath) {
-        nodePath.stop();
+        if (!isWithinNodeLocRange(currentLoc, nodePath.node)) {
+          return;
+        }
       },
     });
   }
 
-  createChakraImportMap(ast: File) {
-    const chakraImportDeclaration = ast.program.body.find(
-      (node) => isImportDeclaration(node) && node.source.value === '@chakra-ui/react'
-    ) as ImportDeclaration;
-
+  createChakraImportMap(importDeclaration: ImportDeclaration) {
     const chakraImports: Record<string, ImportSpecifierNames> = {};
-    chakraImportDeclaration.specifiers.forEach((node) => {
+    importDeclaration.specifiers.forEach((node) => {
       if (!isImportSpecifier(node) || !isIdentifier(node.imported) || !isIdentifier(node.local)) {
         return;
       }

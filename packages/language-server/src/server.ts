@@ -244,7 +244,11 @@ connection.onHover((params) => {
     console.error(error);
     return null;
   }
-  const ast = chakraCodeAnalyzer.parse({ uri: params.textDocument.uri, code });
+  const parsedResult = chakraCodeAnalyzer.parse({ uri: params.textDocument.uri, code });
+  if (!parsedResult) {
+    return null;
+  }
+
   const hoverLoc = mapPositionToLoc(params.position);
 
   const doc: MarkupContent = {
