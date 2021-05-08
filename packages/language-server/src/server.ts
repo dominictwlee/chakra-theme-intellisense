@@ -23,7 +23,7 @@ import {
 
 import { TextDocument } from 'vscode-languageserver-textdocument';
 import ChakraDependencyTracker from './ChakraDependencyTracker';
-import { isJs, isTs, readUriFiles } from './utils';
+import { isJs, isTs, mapPositionToLoc, readUriFiles } from './utils';
 import ChakraCodeAnalyzer from './ChakraCodeAnalyzer';
 
 // Create a connection for the server, using Node's IPC as a transport.
@@ -245,6 +245,7 @@ connection.onHover((params) => {
     return null;
   }
   const ast = chakraCodeAnalyzer.parse({ uri: params.textDocument.uri, code });
+  const hoverLoc = mapPositionToLoc(params.position);
 
   const doc: MarkupContent = {
     kind: 'markdown',
