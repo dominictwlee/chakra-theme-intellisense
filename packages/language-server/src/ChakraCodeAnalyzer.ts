@@ -10,6 +10,9 @@ import {
   isIdentifier,
   isImportDeclaration,
   isImportSpecifier,
+  isJSXIdentifier,
+  JSXAttribute,
+  JSXSpreadAttribute,
 } from '@babel/types';
 import { isWithinNodeLocRange, Loc } from './utils';
 
@@ -74,15 +77,34 @@ export default class ChakraCodeAnalyzer {
     return parsedResult;
   }
 
-  findChakraProps(parsedResult: ParsedResult, currentLoc: Loc) {
+  findChakraProp(parsedResult: ParsedResult, currentLoc: Loc) {
     const { ast, importMap } = parsedResult;
+    let componentName = '';
+    let propNode: JSXAttribute | JSXSpreadAttribute | undefined;
+
     traverse(ast, {
       JSXOpeningElement(nodePath) {
+        const { node } = nodePath;
         if (!isWithinNodeLocRange(currentLoc, nodePath.node)) {
           return;
         }
+
+        if (!isJSXIdentifier(node.name) || !importMap[node.name.name]) {
+          return;
+        }
+
+        if (componentName && propNode) {
+          nodePath.stop();
+        }
+
+        componentName = node.name.name;
+        propNode = node.attributes.find((attributeNode) =>
+          isWithinNodeLocRange(currentLoc, attributeNode)
+        );
       },
     });
+
+    return { componentName, propNode };
   }
 
   createChakraImportMap(importDeclaration: ImportDeclaration) {
